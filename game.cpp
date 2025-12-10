@@ -57,7 +57,9 @@ void gameLoop(std::istream& is, std::ostream& os, Dealer& dealer, Player& player
 
         if (decision == "Hit")
         {
-            player.Hit(dealer.DealCard());
+			Card dealt_card = dealer.DealCard();
+            player.Hit(dealt_card);
+			os << dealt_card.value << std::endl;
         }
         else if (decision == "Stay")
         {

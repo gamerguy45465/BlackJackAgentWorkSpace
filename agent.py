@@ -5,58 +5,239 @@ import shutil
 import math
 import heapq
 
+def Max_Probability(probability: dict, scores, score, card_values):
+    m = -math.inf
+    s: str = ""
 
-def Expectiminimax(current_depth, index, turn, last, scores, available_cards, target_depth):
-    s: int = 0
-    p: float = 0.0
-    if(current_depth == target_depth):
-        return 1
 
+    for card in probability:
+        if probability[card] > m and scores[card] + score <= 21 and card_values[card] > 0:
+            m = probability[card]
+            s = card
+
+    return m, s
+
+
+def Min_Probability(probability: dict, scores, score, card_values):
+    m = math.inf
+    s: str = ""
+
+
+    for card in probability:
+        if probability[card] < m and scores[card] + score <= 21 and card_values[card] > 0:
+            m = probability[card]
+            s = card
+
+    return m, s
+
+
+def probability(available_cards: dict, total_cards: int) -> list:
+    p = []
+    for card in available_cards:
+        p.append(available_cards[card]/total_cards)
+
+    return p
+
+
+def Expectimax(score, scores, turn, available_cards, deck, values, probabilities, q = 1.0):
+    if(score > 21):
+        return q
     if(turn == "Max"):
-        return min(Expectiminimax(current_depth + 1, index, "Prob", "Max", scores, available_cards, target_depth), Expectiminimax(current_depth + 1, index + 1, "Prob", "Max", scores, available_cards, target_depth))
+        temp_deck = deck.copy()
+        tempc = available_cards.copy()
+        q = max(q, Expectimax(score, scores, "Chance",  available_cards, deck, values, probabilities, q))
+        deck = temp_deck.copy()
+        available_cards = tempc.copy()
 
-    elif(turn == "Min"):
-        return max(Expectiminimax(current_depth + 1, index, "Prob", "Min", scores, available_cards, target_depth), Expectiminimax(current_depth + 1, index + 1, "Prob", "Max", scores, available_cards, target_depth))
 
-    elif(turn == "Prob"):
-        if(scores[index] == 1):
-            p = available_cards["Ace"]/len(scores)
-            if(available_cards["Ace"] > 0):
-                available_cards["Ace"] -= 1
-                scores.remove(scores[index])
+    else:
+        p = probability(available_cards, len(deck))
 
-        elif(scores[index] == 11):
-            p = available_cards["Jack"]/len(scores)
-            if(available_cards["Jack"] > 0):
-                available_cards["Jack"] -= 1
-                scores.remove(scores[index])
+        probs = {}
 
-        elif(scores[index] == 12):
-            p = available_cards["Queen"]/len(scores)
-            if(available_cards["Queen"] > 0):
-                available_cards["Queen"] -= 1
-                scores.remove(scores[index])
+        for i in range(len(p)):
+            if(i == 0):
+                probs["Ace"] = p[i]
 
-        elif(scores[index] == 13):
-            p = available_cards["King"]/len(scores)
-            if(available_cards["King"] > 0):
-                available_cards["King"] -= 1
-                scores.remove(scores[index])
+            elif(i == 10):
+                probs["Jack"] = p[i]
+
+            elif(i == 11):
+                probs["Queen"] = p[i]
+
+            elif(i == 12):
+                probs["King"] = p[i]
+
+            else:
+                probs[str(i + 1)] = p[i]
+
+        E_x = 0.0
+        index = 1
+        for s in probs:
+            E_x += index * probs[s]
+            index += 1
+
+
+        q = E_x
+
+        if(score + q > 21):
+            return q
 
         else:
-            p = available_cards[str(scores[index])]/len(scores)
-            if(available_cards[str(scores[index])] > 0):
-                available_cards[str(scores[index])] -= 1
-                scores.remove(scores[index])
+            q = max(q, Expectimax(score + q, scores, "Max", available_cards, deck, values, probabilities, q))
 
 
-        if(last == "Max"):
-            #return p * min(Expectiminimax(current_depth + 1, index, "Min", "Prob", scores, available_cards, target_depth), Expectiminimax(current_depth + 1, index + 1, "Min", "Prob", scores, available_cards, target_depth))
-            return p * 1
+    return q
 
-        elif(last == "Min"):
-            #return p * max(Expectiminimax(current_depth + 1, index, "Max", "Prob", scores, available_cards, target_depth), Expectiminimax(current_depth + 1, index + 1, "Max", "Prob", scores, available_cards, target_depth))
-            return p * -1
+
+
+def Expectiminimax(score, turn, prev, scores, available_cards, deck, values):
+    q = 0
+    if(score >= 21):
+        return score
+    if(turn == "Max"):
+        temp_deck = deck.copy()
+        tempc = available_cards.copy()
+        q = Expectiminimax(score, "Chance", "Max", scores, available_cards, deck, values)
+        deck = temp_deck.copy()
+        available_cards = tempc.copy()
+
+
+    elif(turn == "Min"):
+        temp_deck = deck.copy()
+        tempc = available_cards.copy()
+        q = Expectiminimax(score, "Chance", "Min", scores, available_cards, deck, values)
+        deck = temp_deck.copy()
+        available_cards = tempc.copy()
+
+    else:
+        p = probability(available_cards, len(deck))
+
+        probs = {}
+
+        for i in range(len(p)):
+            if(i == 0):
+                probs["Ace"] = p[i]
+
+            elif(i == 10):
+                probs["Jack"] = p[i]
+
+            elif(i == 11):
+                probs["Queen"] = p[i]
+
+            elif(i == 12):
+                probs["King"] = p[i]
+
+            else:
+                probs[str(i + 1)] = p[i]
+
+
+
+
+        if(prev == "Max"):
+            m, s = Max_Probability(probs, scores, score, available_cards)
+
+
+
+
+            if(s == "Ace"):
+                temp_deck = deck.copy()
+                tempc = available_cards.copy()
+                deck.remove(1)
+                available_cards[s] -= 1
+                if (score + 11) > 21:
+                    q = m
+                    Expectiminimax(score + 1, "Min", "Chance", scores, available_cards, deck, values)
+                    deck = temp_deck.copy()
+                    available_cards = tempc.copy()
+
+                else:
+                    q = m
+                    Expectiminimax(score + 11, "Min", "Chance", scores, available_cards, deck, values)
+                    deck = temp_deck.copy()
+                    available_cards = tempc.copy()
+
+
+            else:
+                temp_deck = deck.copy()
+                tempc = available_cards.copy()
+                deck.remove(values[s])
+                available_cards[s] -= 1
+                q = m
+                Expectiminimax(score + scores[s], "Min", "Chance", scores, available_cards, deck, values)
+                deck = temp_deck.copy()
+                available_cards = tempc.copy()
+
+        elif(prev == "Min"):
+            m, s = Min_Probability(probs, scores, score, available_cards)
+            print(m)
+            print(s)
+
+            if(m == math.inf):
+                return q
+
+            if(s == "Ace"):
+                temp_deck = deck.copy()
+                tempc = available_cards.copy()
+                deck.remove(1)
+                available_cards[s] -= 1
+                if (score + 11) > 21:
+                    q = m * Expectiminimax(score + 1, "Min", "Chance", scores, available_cards, deck, values)
+                    deck = temp_deck.copy()
+                    available_cards = tempc.copy()
+
+                else:
+                    q = m * Expectiminimax(score + 11, "Min", "Chance", scores, available_cards, deck, values)
+                    deck = temp_deck.copy()
+                    available_cards = tempc.copy()
+
+
+            else:
+                temp_deck = deck.copy()
+                tempc = available_cards.copy()
+                deck.remove(values[s])
+                available_cards[s] -= 1
+                q = m * Expectiminimax(score + scores[s], "Min", "Chance", scores, available_cards, deck, values)
+                deck = temp_deck.copy()
+                available_cards = tempc.copy()
+
+
+
+    return q
+
+
+
+
+
+
+def Sum_of_Cards(cards):
+    sum = 0
+    for card in cards:
+        print("Card: ", card)
+        if card == "Ace":
+            if(sum + 11 == 21):
+                sum += 11
+
+            else:
+                sum += 1
+
+        elif card == "Jack":
+            sum += 10
+
+        elif card == "Queen":
+            sum += 10
+
+        elif card == "King":
+            sum += 10
+
+
+        else:
+            sum += int(card)
+
+
+
+    return sum
+
 
 
 
@@ -142,10 +323,11 @@ def main():
     while True:
         deck = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
         available_cards = {"Ace": 4, "2": 4, "3": 4, "4": 4, "5": 4, "6": 4, "7": 4, "8": 4, "9": 4, "10": 4, "Jack": 4, "Queen": 4, "King": 4}
+        scores = {"Ace": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6":6, "7":7, "8":8, "9":9, "10":10, "Jack":10, "Queen":10, "King":10}
+        values = {"Ace": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6":6, "7":7, "8":8, "9":9, "10":10, "Jack":11, "Queen":12, "King":13}
         line = process.stdout.readline()
         if not line:
             break
-
 
         print("GAME:", line.strip())
         if(line.strip() == "Play again? (y, n)"):
@@ -228,28 +410,62 @@ def main():
 
 
 
-            print(deck)
 
-            target_depth = math.ceil(math.log(len(deck) - 1, 2))
-            print("Target Depth: ",target_depth)
+        while True:
             temp_cards = available_cards.copy()
             temp_deck = deck.copy()
-            s1 = Expectiminimax(0, 0, "Max", "Max", deck, available_cards, target_depth)
+            probabilities = []
+            s_cards = Sum_of_Cards(cards)
+            s1 = Expectimax(s_cards, scores, "Max", available_cards, deck, values, probabilities)
+            print(probabilities)
+            #s1 = Expectiminimax(0, "Max", "Max", scores, available_cards, deck, values)
             available_cards = temp_cards.copy()
             deck = temp_deck.copy()
+            print(s1)
 
-
-            print("S1: ", s1)
-            if(s1 > .01):
+            if(s1 + s_cards <= 21):
                 process.stdin.write("Hit\n")
-                #process.stdin.flush()
                 line = process.stdout.readline()
-                print(line.strip())
+                cards.append(line.strip())
+                deck.remove(int(line.strip()))
+                available_cards[line.strip()] -= 1
+                print("GAME: ", line.strip())
+                print(cards)
+
+            else:
+                print("Stay")
+                process.stdin.write("Stay\n")
+                while("Play again? (y, n)" not in line):
+                    line = process.stdout.readline()
+                    print("GAME: ", line)
+
+                print("GAME: ", line)
+                process.stdin.write("y\n")
 
 
-    # Here is where YOU will add your logic to send moves:
-    # process.stdin.write("y\n")
-    # process.stdin.flush()
+            line = process.stdout.readline()
+            if("Player Busts!" in line):
+                print("GAME: ", line.strip())
+                break
+
+            while("Score:" not in line.strip()):
+                print("GAME: ", line.strip())
+                line = process.stdout.readline()
+
+
+            print("GAME: ", line.strip())
+
+
+
+            line = process.stdout.readline()
+            print("GAME: ", line.strip())
+
+
+
+
+
+
+
 
     process.wait()
 
